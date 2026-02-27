@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     curl \
+    unzip \
+    libmecab-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -25,11 +27,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Install MeloTTS from GitHub (PyPI package is broken)
 RUN pip install --no-cache-dir git+https://github.com/myshell-ai/MeloTTS.git && \
-    python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True)" || true
+    python -m unidic download && \
+    python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('punkt', quiet=True)"
 
 # Install Chatterbox TTS from GitHub
-RUN pip install --no-cache-dir git+https://github.com/resemble-ai/chatterbox.git || \
-    echo "WARNING: Chatterbox install failed — fallback TTS unavailable"
+RUN pip install --no-cache-dir git+https://github.com/resemble-ai/chatterbox.git
 
 # Copy application code
 COPY . .
