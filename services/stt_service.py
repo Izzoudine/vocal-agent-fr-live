@@ -1,37 +1,29 @@
 """
 vocal-agent-fr-live — STT Service.
 
-Custom Pipecat STT service wrapping faster-whisper for French speech recognition.
+Custom STT service wrapping faster-whisper for French speech recognition.
 Supports configurable model sizes and CPU/GPU inference.
+Uses lazy model loading (models load on first use).
 """
 
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 from typing import Any
 
 import numpy as np
-from faster_whisper import WhisperModel
-from pipecat.frames.frames import (
-    ErrorFrame,
-    Frame,
-    TranscriptionFrame,
-    InterimTranscriptionFrame,
-)
-from pipecat.services.ai_services import STTService
 
 from config import app_config
 
 logger = logging.getLogger(__name__)
 
 
-class FasterWhisperSTTService(STTService):
-    """Custom Pipecat STT service using faster-whisper.
+class FasterWhisperSTTService:
+    """STT service using faster-whisper.
 
     Loads a Whisper model optimized for French transcription.
-    Supports streaming audio input and outputs TranscriptionFrames.
+    Models are loaded lazily on first transcription request.
     """
 
     def __init__(
@@ -40,16 +32,13 @@ class FasterWhisperSTTService(STTService):
         language: str | None = None,
         device: str | None = None,
         compute_type: str | None = None,
-        **kwargs: Any,
     ):
-        super().__init__(**kwargs)
-
         self._model_size = model_size or app_config.stt_model_size
         self._language = language or app_config.stt_language
         self._device = device or app_config.stt_device
         self._compute_type = compute_type or app_config.stt_compute_type
-        self._model: WhisperModel | None = None
-        self._audio_buffer = bytearray()
+        self._model = None
+        self._loading = False
         self._sample_rate = 16000  # Whisper expects 16kHz mono
 
         logger.info(
@@ -60,15 +49,27 @@ class FasterWhisperSTTService(STTService):
             self._language,
         )
 
-    async def start(self, frame: Frame):
-        """Initialize the Whisper model on service start."""
-        await super().start(frame)
-        await self._load_model()
+    async def _ensure_model_loaded(self):
+        """Lazy-load the Whisper model on first use."""
+        if self._model is not None:
+            return
+        if self._loading:
+            while self._loading:
+                await asyncio.sleep(0.5)
+            return
+
+        self._loading = True
+        try:
+            await self._load_model()
+        finally:
+            self._loading = False
 
     async def _load_model(self):
         """Load the faster-whisper model in a background thread."""
 
         def _load():
+            from faster_whisper import WhisperModel
+
             logger.info("Loading faster-whisper model: %s ...", self._model_size)
             model = WhisperModel(
                 self._model_size,
@@ -90,8 +91,10 @@ class FasterWhisperSTTService(STTService):
         Returns:
             Transcribed text string.
         """
+        await self._ensure_model_loaded()
+
         if self._model is None:
-            logger.error("STT model not loaded yet!")
+            logger.error("STT model could not be loaded!")
             return ""
 
         def _transcribe(audio_data: bytes) -> str:
@@ -126,8 +129,3 @@ class FasterWhisperSTTService(STTService):
 
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _transcribe, audio)
-
-    async def cancel(self, frame: Frame):
-        """Handle cancellation (e.g., user interruption)."""
-        await super().cancel(frame)
-        self._audio_buffer.clear()

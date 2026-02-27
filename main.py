@@ -22,10 +22,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from pipecat.frames.frames import (
-    TTSAudioRawFrame,
-)
-
 from config import AppConfig, SessionConfig, app_config
 from services.llm_service import ConversationManager, create_ollama_service
 from services.memory_service import MemoryManager
@@ -414,9 +410,8 @@ async def websocket_voice_endpoint(websocket: WebSocket, session_id: str):
                                     "channels": 1,
                                 })
 
-                                async for frame in tts_service.run_tts(response_text):
-                                    if isinstance(frame, TTSAudioRawFrame):
-                                        await websocket.send_bytes(frame.audio)
+                                async for chunk in tts_service.run_tts(response_text):
+                                    await websocket.send_bytes(chunk["audio"])
 
                                 await websocket.send_json({
                                     "type": "audio.end",
@@ -554,9 +549,8 @@ async def websocket_voice_endpoint(websocket: WebSocket, session_id: str):
                                         "channels": 1,
                                     })
 
-                                    async for frame in tts_service.run_tts(response_text):
-                                        if isinstance(frame, TTSAudioRawFrame):
-                                            await websocket.send_bytes(frame.audio)
+                                    async for chunk in tts_service.run_tts(response_text):
+                                        await websocket.send_bytes(chunk["audio"])
 
                                     await websocket.send_json({"type": "audio.end"})
 

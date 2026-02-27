@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pipecat.services.ollama import OLLamaLLMService
+from pipecat.services.ollama.llm import OLLamaLLMService
 
 from config import AppConfig, SessionConfig, app_config
 
