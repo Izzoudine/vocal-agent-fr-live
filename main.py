@@ -326,8 +326,8 @@ async def websocket_voice_endpoint(websocket: WebSocket, session_id: str):
                 # Accumulate audio
                 audio_buffer.extend(audio_data)
 
-                # Process when we have enough audio (~1 second at 16kHz, 16-bit mono)
-                min_audio_bytes = 16000 * 2  # 1 second of audio
+                # Process when we have enough audio (~0.5 second at 16kHz, 16-bit mono)
+                min_audio_bytes = 8000 * 2  # 0.5 seconds of audio
                 if len(audio_buffer) >= min_audio_bytes:
                     # Transcribe
                     transcription = await stt_service.run_stt(bytes(audio_buffer))
