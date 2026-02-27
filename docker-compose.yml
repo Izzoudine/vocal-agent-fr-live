@@ -9,8 +9,6 @@
 #   docker-compose down           # Stop all services
 # ============================================================
 
-version: "3.9"
-
 services:
   # ---------------------------------------------------------
   # Ollama — Local LLM inference server
@@ -25,20 +23,13 @@ services:
       - ollama_models:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
-    # Uncomment for NVIDIA GPU support:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    # Healthcheck using internal command instead of curl
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   # ---------------------------------------------------------
   # Ollama Model Puller — Downloads the LLM model on first run
@@ -47,8 +38,7 @@ services:
     image: ollama/ollama:latest
     container_name: vocal-agent-ollama-pull
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama
     entrypoint: >
       sh -c "
         echo 'Pulling model: ${OLLAMA_MODEL:-mistral:7b-instruct-v0.3-q4_0}...' &&
@@ -71,8 +61,7 @@ services:
     ports:
       - "${PORT:-8765}:8765"
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama
     env_file:
       - .env
     environment:
@@ -82,12 +71,13 @@ services:
     volumes:
       - agent_data:/app/data
       - model_cache:/root/.cache  # Cache for Whisper, MeloTTS, Chatterbox models
+    # Healthcheck for the voice agent
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s  # Models take time to load
+      start_period: 120s
 
 # ---------------------------------------------------------
 # Volumes
