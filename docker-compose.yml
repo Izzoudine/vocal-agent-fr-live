@@ -1,0 +1,104 @@
+# ============================================================
+# vocal-agent-fr-live — Docker Compose
+# ============================================================
+# Complete stack: Ollama LLM + Voice Agent Service
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose logs -f        # View logs
+#   docker-compose down           # Stop all services
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------
+  # Ollama — Local LLM inference server
+  # ---------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vocal-agent-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    # Uncomment for NVIDIA GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------
+  # Ollama Model Puller — Downloads the LLM model on first run
+  # ---------------------------------------------------------
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: vocal-agent-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        echo 'Pulling model: ${OLLAMA_MODEL:-mistral:7b-instruct-v0.3-q4_0}...' &&
+        ollama pull ${OLLAMA_MODEL:-mistral:7b-instruct-v0.3-q4_0} &&
+        echo 'Model ready!'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  # ---------------------------------------------------------
+  # Voice Agent — Main Pipecat service
+  # ---------------------------------------------------------
+  vocal-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vocal-agent-service
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8765}:8765"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - HOST=0.0.0.0
+      - PORT=8765
+    volumes:
+      - agent_data:/app/data
+      - model_cache:/root/.cache  # Cache for Whisper, MeloTTS, Chatterbox models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s  # Models take time to load
+
+# ---------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------
+volumes:
+  ollama_models:
+    driver: local
+    name: vocal-agent-ollama-models
+  agent_data:
+    driver: local
+    name: vocal-agent-data
+  model_cache:
+    driver: local
+    name: vocal-agent-model-cache

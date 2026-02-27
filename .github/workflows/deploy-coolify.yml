@@ -1,0 +1,103 @@
+# ============================================================
+# vocal-agent-fr-live — Deploy to Coolify / DigitalOcean
+# ============================================================
+# Triggers on push to main branch.
+# Deploys via SSH to a server running Coolify or Docker Compose.
+# ============================================================
+
+name: Deploy to Coolify
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # -------------------------------------------------------
+      # 1. Checkout code
+      # -------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------
+      # 2. Build and push Docker image to GHCR
+      # -------------------------------------------------------
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # -------------------------------------------------------
+      # 3. Deploy to server via SSH
+      # -------------------------------------------------------
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            
+            # Navigate to project directory
+            cd /opt/vocal-agent-fr-live || mkdir -p /opt/vocal-agent-fr-live && cd /opt/vocal-agent-fr-live
+            
+            # Pull latest code
+            if [ -d .git ]; then
+              git pull origin main
+            else
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+            
+            # Copy .env if not exists
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              echo "⚠️  Created .env from .env.example — please configure it!"
+            fi
+            
+            # Pull latest images and rebuild
+            docker-compose pull
+            docker-compose up -d --build --remove-orphans
+            
+            # Wait for health check
+            echo "Waiting for services to be healthy..."
+            sleep 30
+            curl -sf http://localhost:8765/health && echo "✅ Vocal agent is healthy!" || echo "❌ Health check failed"
+
+      # -------------------------------------------------------
+      # 4. Notify (optional — via Coolify webhook)
+      # -------------------------------------------------------
+      - name: Trigger Coolify webhook (optional)
+        if: ${{ secrets.COOLIFY_WEBHOOK_URL != '' }}
+        run: |
+          curl -sf "${{ secrets.COOLIFY_WEBHOOK_URL }}" || true

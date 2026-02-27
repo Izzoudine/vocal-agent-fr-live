@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "vocal-agent-fr-live"
+version = "1.0.0"
+description = "Self-hosted live speech-to-speech vocal agent backend in French"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+authors = [
+    {name = "vocal-agent-fr-live contributors"},
+]
+keywords = ["voice", "agent", "speech-to-speech", "french", "pipecat", "tts", "stt"]
+
+dependencies = [
+    "pipecat-ai[websocket,silero]>=0.0.103",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "faster-whisper>=1.1.0",
+    "MeloTTS>=0.1.0",
+    "chatterbox-tts>=0.1.0",
+    "mem0ai>=0.1.0",
+    "ollama>=0.4.0",
+    "python-dotenv>=1.0.0",
+    "slowapi>=0.1.9",
+    "websockets>=12.0",
+    "numpy>=1.26.0",
+    "soundfile>=0.12.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.3.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
