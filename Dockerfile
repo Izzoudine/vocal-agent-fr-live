@@ -18,10 +18,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python dependencies (pip packages)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Install MeloTTS from GitHub (PyPI package is broken)
+RUN pip install --no-cache-dir git+https://github.com/myshell-ai/MeloTTS.git && \
+    python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True)" || true
+
+# Install Chatterbox TTS from GitHub
+RUN pip install --no-cache-dir git+https://github.com/resemble-ai/chatterbox.git || \
+    echo "WARNING: Chatterbox install failed — fallback TTS unavailable"
 
 # Copy application code
 COPY . .
