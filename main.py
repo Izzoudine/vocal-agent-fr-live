@@ -23,21 +23,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from pipecat.frames.frames import (
-    EndFrame,
-    LLMMessagesFrame,
-    TextFrame,
-    TranscriptionFrame,
     TTSAudioRawFrame,
 )
-from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.runner import PipelineRunner
-from pipecat.pipeline.task import PipelineParams, PipelineTask
-from pipecat.processors.aggregators.llm_response import (
-    LLMAssistantResponseAggregator,
-    LLMUserResponseAggregator,
-)
-from pipecat.transports.services.daily import DailyParams
-from pipecat.vad.silero import SileroVADAnalyzer
 
 from config import AppConfig, SessionConfig, app_config
 from services.llm_service import ConversationManager, create_ollama_service
