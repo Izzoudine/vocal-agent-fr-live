@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmecab-dev \
     pkg-config \
     cmake \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust via rustup (required for latest versions 1.88+ for tokenizers)
