@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
     libmecab-dev \
+    rustc \
+    cargo \
+    pkg-config \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
